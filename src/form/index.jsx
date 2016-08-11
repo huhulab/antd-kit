@@ -40,11 +40,6 @@ export const formHelpers = {
   getValueFromFileEvent({ target }) {
     return { target };
   },
-  makeOptionElements(options) {
-    return options.map(function(item) {
-      return <Option key={item[0]} value={String(item[0])}>{item[1]}</Option>;
-    });
-  }
 };
 
 //// Form Rules
