@@ -365,7 +365,7 @@ export class BaseForm extends Component {
     formBody.push(footerItem);
 
     return (
-      <Form form={form} onSubmit={e => this.handleSubmit(e)}
+      <Form onSubmit={e => this.handleSubmit(e)}
             {...formProps}>
         {formBody}
       </Form>
@@ -406,7 +406,7 @@ export class FormModal extends BaseForm {
              footer={footerItem}
              onCancel={e => this.props.onCancel()}
              {...modalProps}>
-        <Form form={form} onSubmit={e => this.handleSubmit(e)}
+        <Form onSubmit={e => this.handleSubmit(e)}
               {...formProps} >
           {formBody}
         </Form>
@@ -458,7 +458,7 @@ export class SearchForm extends BaseForm {
     formBody.push(footerItem);
 
     return (
-      <Form form={form} onSubmit={e => this.handleSubmit(e)}
+      <Form onSubmit={e => this.handleSubmit(e)}
             className="advanced-search-form"
             {...formProps}>
         {formBody}
