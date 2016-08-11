@@ -1,0 +1,16 @@
+th.ant-table-selection-column,
+td.ant-table-selection-column {
+    width: 28px;
+    padding: 0;
+}
+
+.report-table th {
+  border: 1px solid #666;
+  background-color: #dedede;
+  padding: 8px;
+}
+
+.report-table td {
+  border: 1px solid #666;
+  padding: 8px;
+}
