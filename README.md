@@ -5,6 +5,8 @@
 ``` bash
     cd {project-directory}/src
     git submodule add https://github.com/huhulab/antd-kit.git
+    # pull all submodules
+    git submodule foreach git pull origin master
 ```
 
 ### Use in your code
