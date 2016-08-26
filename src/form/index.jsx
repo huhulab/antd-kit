@@ -23,6 +23,7 @@ import * as _ from 'lodash';
 import moment from 'moment';
 
 export const FormItem = Form.Item;
+const Option = Select.Option;
 
 const MAX_SPAN = 24;
 
@@ -40,6 +41,11 @@ export const formHelpers = {
   getValueFromFileEvent({ target }) {
     return { target };
   },
+  makeOptionElements(options) {
+    return options.map(function(item) {
+      return <Option key={String(item[0])} value={String(item[0])}>{item[1]}</Option>;
+    });
+  }
 };
 
 //// Form Rules
