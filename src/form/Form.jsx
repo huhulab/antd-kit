@@ -213,7 +213,7 @@ export class BaseForm extends Component {
   }
 
   componentWillReceiveProps(newProps) {
-    console.log('componentWillReceiveProps', this.props.type, newProps);
+    // console.log('componentWillReceiveProps', this.props.type, newProps);
     if (!_.isEqual(newProps.object, this.props.object)) {
       this.setState({object: newProps.object}, () => {
         this.resetForm();

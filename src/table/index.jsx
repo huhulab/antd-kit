@@ -93,7 +93,7 @@ export const TableMixin = {
 
   getColumns(key) {
     const columnNames = this.state.columnNames;
-    console.log('getColumns.columnNames:', key, columnNames);
+    // console.log('getColumns.columnNames:', key, columnNames);
     const fields = columnNames.constructor === Array ? columnNames : columnNames[key];
     return fields.map((field) => {
       return this.state.columns[field];

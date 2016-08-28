@@ -213,10 +213,10 @@ export function renderSelectField(config) {
     operation: config.operation,
     render({form ,field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
-      const options = _.get(config, 'options', this.state.options[field]);
+      const options = config.options || this.state.options[field];
       return <FormItem label={config.label} {...itemProps}>
-        <Select {...config.attrs} {...inputProps}>
-           {formHelpers.makeOptionElements(options)}
+        <Select {...config.attrs} placeholder={config.placeholder} {...inputProps}>
+          {formHelpers.makeOptionElements(options)}
         </Select>
       </FormItem>;
     }
@@ -234,7 +234,7 @@ export function renderMultipleSelectField(config) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       const options = _.get(config, 'options', this.state.options[field]);
       return <FormItem label={config.label} {...itemProps}>
-        <Select multiple {...config.attrs} {...inputProps}>
+        <Select multiple {...config.attrs} placeholder={config.placeholder} {...inputProps}>
            {formHelpers.makeOptionElements(options)}
         </Select>
       </FormItem>;
@@ -326,8 +326,6 @@ export function buildFormModal(config) {
   return Form.create()(_FormModal);
 }
 
-export function handleSearchFormSubmit(context, values, callback) {
-}
 
 export function buildSearchForm(config) {
   let fieldNames = config.fields.map((field) => field.name);
@@ -339,7 +337,7 @@ export function buildSearchForm(config) {
       type: "update",
       formProps: {
         ...SearchForm.formProps,
-        style: {marginTop: '8px', width: '600px'},
+        style: {marginTop: '8px', width: '640px'},
         ...config.formProps},
       layout: _.get(config, "layout", [fieldNames]),
       defaultFilters: config.defaultFilters,

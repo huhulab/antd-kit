@@ -5,7 +5,7 @@ export {
   formHelpers, formRules } from './form/Form';
 export {
   FormField, buildForm, buildFormModal,
-  buildSearchForm, handleSearchFormSubmit
+  buildSearchForm
 } from './form/buildForm';
 
 export { TableMixin } from './table';
