@@ -31,23 +31,42 @@ import {
 
 const Config = {
   type: "create" || "update",
+  formProps: Object,
   title: String, // FormModal:: title
-  table: Object, // SearchForm:: Table context
-  filters: Array, // SearchForm:: query filters
-  layout: Array,  // SearchForm:: fields layout
-  // path: String || (obj) => String, // URL path
+  modalProps: Object, // FormModal:: modalProps
   onSubmit: Function,
   fields: [
     {
       name: String,
       type: String,
       attrs: Object, // For <Input>
+      options: Array, // For <Select>
       label: String,
       placeholder: String,
       required: Boolean,
     }
   ]
-}
+};
+
+const SearchConfig = {
+  filters: Array, // SearchForm:: query filters
+  layout: Array,  // SearchForm:: fields layout
+  formProps: Object,
+  onSubmit: Function,
+  init: Function, // SearchForm:: componentDidMount(), for init select options
+  fields: [
+    {
+      name: String,
+      type: String,
+      attrs: Object, // For <Input>
+      options: Array, // For <Select>
+      operation: String, // SearchForm:: operation
+      label: String,
+      placeholder: String,
+    }
+  ]
+};
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -65,6 +84,7 @@ export function renderTextField(config) {
   const rules = config.required ? [{required: true, message: config.placeholder}] : [];
   return {
     type: "text",
+    operation: config.operation,
     render({form, field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       return (
@@ -101,6 +121,7 @@ export function renderBooleanField(config) {
   const rules = config.required ? [{required: true, message: config.placeholder, type: 'boolean'}] : [];
   return {
     type: "boolean",
+    operation: config.operation,
     render({form, field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       return (
@@ -118,6 +139,7 @@ export function renderNumberField(config) {
   }] : [];
   return {
     type: 'number',
+    operation: config.operation,
     render({ field, form, itemProps }) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       const attrs = config.attrs;
@@ -138,6 +160,7 @@ export function renderTextareaField(config) {
   const rules = config.required ? [{required: true, message: config.placeholder}] : [];
   return {
     type: "textarea",
+    operation: config.operation,
     render({form, field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       return (
@@ -172,6 +195,7 @@ export function renderDateField(config) {
   const rules = config.required ? [{required: true, message: config.placeholder, type: 'date'}] : [];
   return {
     type: "date",
+    operation: config.operation,
     render({ field, form, itemProps }) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       return <FormItem label={config.label} {...itemProps}>
@@ -185,11 +209,13 @@ export function renderSelectField(config) {
   const rules = config.required ? [{required: true, message: config.placeholder}] : [];
   return {
     type: "select",
+    operation: config.operation,
     render({form ,field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
+      const options = _.get(config, 'options', this.state.options[field]);
       return <FormItem label={config.label} {...itemProps}>
         <Select {...config.attrs} {...inputProps}>
-           {formHelpers.makeOptionElements(config.options)}
+           {formHelpers.makeOptionElements(options)}
         </Select>
       </FormItem>;
     }
@@ -202,11 +228,13 @@ export function renderMultipleSelectField(config) {
   ] : [];
   return {
     type: "multiple_select",
+    operation: config.operation,
     render({form, field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
+      const options = _.get(config, 'options', this.state.options[field]);
       return <FormItem label={config.label} {...itemProps}>
         <Select multiple {...config.attrs} {...inputProps}>
-           {formHelpers.makeOptionElements(config.options)}
+           {formHelpers.makeOptionElements(options)}
         </Select>
       </FormItem>;
     }
@@ -216,6 +244,7 @@ export function renderMultipleSelectField(config) {
 export function renderRangeDateField(config) {
   return {
     type: "range_date",
+    operation: config.operation,
     render({form, field, itemProps}) {
       <FormItem label={config.label} {...itemProps}>
         <RangePicker {...config.attrs} {...form.getFieldProps(field)}/>
@@ -246,6 +275,7 @@ export function buildItems(config) {
         "date": renderDateField,
         "select": renderSelectField,
         "multiple_select": renderMultipleSelectField,
+        "range_date": renderRangeDateField,
       }[field.type](field);
     }
   });
@@ -260,7 +290,7 @@ export function buildForm(config) {
     static defaultProps = {
       ...BaseForm.defaultProps,
       type: config.type,
-      formProps: config.formProps,
+      formProps: {...BaseForm.formProps, ...config.formProps},
       fields: fieldNames,
       items: fieldItems
     }
@@ -281,8 +311,8 @@ export function buildFormModal(config) {
     static defaultProps = {
       ...FormModal.defaultProps,
       type: config.type,
-      formProps: config.formProps,
-      modalProps: config.modalProps,
+      formProps: {...FormModal.formProps, ...config.formProps},
+      modalProps: {...FormModal.modalProps, ...config.modalProps},
       title: config.title,
       fields: fieldNames,
       items: fieldItems
@@ -296,6 +326,35 @@ export function buildFormModal(config) {
   return Form.create()(_FormModal);
 }
 
+export function handleSearchFormSubmit(context, values, callback) {
+  const { fields, items, defaultFilters } = context.props;
+  let query = this.state.query;
+  query.page = 1;
+  // FIXME: defaultFilters 并没有生效
+  query.filters = defaultFilters === undefined ? [] : defaultFilters;
+  fields.forEach(function(name) {
+    const value = values[name];
+    if (!(value === undefined)) {
+      const item = items[name];
+      if (item.type === "range_date") {
+        query.updateFilter(name, '>=', moment(value[0]).format('YYYY-MM-DD'));
+        query.updateFilter(name, '<', moment(value[1]).add('days', 1).format('YYYY-MM-DD'));
+      } else {
+        /// FIXME: Unhandled > multiple_select
+        const operation = _.get(item, 'operation', '==');
+        query.updateFilter(name, operation, value);
+      }
+    }
+  });
+
+  this.setState({
+    query: query,
+  }, () => {
+    this.loadPage();
+    callback(values);
+  });
+}
+
 export function buildSearchForm(config) {
   let fieldNames = config.fields.map((field) => field.name);
   const fieldItems = buildItems(config);
@@ -304,38 +363,15 @@ export function buildSearchForm(config) {
     static defaultProps = {
       ...SearchForm.defaultProps,
       type: "update",
-      formProps: config.formProps,
+      formProps: {...SearchForm.formProps, ...config.formProps},
       layout: config.layout,
+      defaultFilters: config.defaultFilters,
       fields: fieldNames,
       items: fieldItems
     }
 
-    onSubmit(values, callback) {
-      const { fields, items } = this.props;
-      const { table, filters } = config;
-      let query = table.query;
-      query.page = 1;
-      query.filters = filters === undefined ? [] : filters;
-      fields.forEach(function(name) {
-        const value = values[name];
-        if (value === undefined) {
-          return;
-        }
-        const item = items[name];
-        if (item.type === "range_date") {
-          query.updateFilter(name, '>=', moment(value[0]).format('YYYY-MM-DD'));
-          query.updateFilter(name, '<', moment(value[1]).add('days', 1).format('YYYY-MM-DD'));
-        } else {
-          const operation = _.get(item, 'operation', '==');
-          query.updateFilter(name, operation, value);
-        }
-      });
-      table.setState({
-        query: query,
-      }, () => {
-        table.loadPage();
-        callback(values);
-      });
+    componentDidMount() {
+      config.init.bind(this)();
     }
   }
 

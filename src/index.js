@@ -1,7 +1,13 @@
 
 
-export { FormItem, BaseForm, FormModal, SearchForm,
-         formHelpers, formRules } from './form';
+export {
+  FormItem, BaseForm, FormModal, SearchForm,
+  formHelpers, formRules } from './form/Form';
+export {
+  FormField, buildForm, buildFormModal,
+  buildSearchForm, handleSearchFormSubmit
+} from './form/buildForm';
+
 export { TableMixin } from './table';
 
 export PageIntro from './other/PageIntro';

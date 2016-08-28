@@ -421,6 +421,7 @@ export class SearchForm extends BaseForm {
   static propTypes = {
     ...BaseForm.propTypes,
     visible : PropTypes.bool.isRequired,
+    defaultFilters: PropTypes.array,
   }
 
   static defaultProps = {
