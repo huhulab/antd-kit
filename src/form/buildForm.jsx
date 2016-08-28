@@ -71,6 +71,7 @@ const SearchConfig = {
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+const RangePicker = DatePicker.RangePicker;
 
 export class FormField {
   constructor({name, type, render}) {
@@ -228,7 +229,7 @@ export function renderMultipleSelectField(config) {
   ] : [];
   return {
     type: "multiple_select",
-    operation: config.operation,
+    operation: _.get(config, "operation", "in"), // ["in", "~in"]
     render({form, field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       const options = _.get(config, 'options', this.state.options[field]);
@@ -244,9 +245,8 @@ export function renderMultipleSelectField(config) {
 export function renderRangeDateField(config) {
   return {
     type: "range_date",
-    operation: config.operation,
     render({form, field, itemProps}) {
-      <FormItem label={config.label} {...itemProps}>
+      return <FormItem label={config.label} {...itemProps}>
         <RangePicker {...config.attrs} {...form.getFieldProps(field)}/>
       </FormItem>
     }
@@ -327,32 +327,6 @@ export function buildFormModal(config) {
 }
 
 export function handleSearchFormSubmit(context, values, callback) {
-  const { fields, items, defaultFilters } = context.props;
-  let query = this.state.query;
-  query.page = 1;
-  // FIXME: defaultFilters 并没有生效
-  query.filters = defaultFilters === undefined ? [] : defaultFilters;
-  fields.forEach(function(name) {
-    const value = values[name];
-    if (!(value === undefined)) {
-      const item = items[name];
-      if (item.type === "range_date") {
-        query.updateFilter(name, '>=', moment(value[0]).format('YYYY-MM-DD'));
-        query.updateFilter(name, '<', moment(value[1]).add('days', 1).format('YYYY-MM-DD'));
-      } else {
-        /// FIXME: Unhandled > multiple_select
-        const operation = _.get(item, 'operation', '==');
-        query.updateFilter(name, operation, value);
-      }
-    }
-  });
-
-  this.setState({
-    query: query,
-  }, () => {
-    this.loadPage();
-    callback(values);
-  });
 }
 
 export function buildSearchForm(config) {
@@ -363,15 +337,49 @@ export function buildSearchForm(config) {
     static defaultProps = {
       ...SearchForm.defaultProps,
       type: "update",
-      formProps: {...SearchForm.formProps, ...config.formProps},
-      layout: config.layout,
+      formProps: {
+        ...SearchForm.formProps,
+        style: {marginTop: '8px', width: '600px'},
+        ...config.formProps},
+      layout: _.get(config, "layout", [fieldNames]),
       defaultFilters: config.defaultFilters,
       fields: fieldNames,
       items: fieldItems
     }
 
     componentDidMount() {
-      config.init.bind(this)();
+      if (config.init !== undefined) {
+        config.init.bind(this)();
+      }
+    }
+
+    onSubmit(values, callback) {
+      const { fields, items, defaultFilters } = this.props;
+      const { table } = this.props;
+      let query = table.state.query;
+      query.page = 1;
+      // FIXME: defaultFilters 并没有生效
+      query.filters = defaultFilters === undefined ? [] : defaultFilters;
+      fields.forEach(function(name) {
+        const value = values[name];
+        if (!(value === undefined)) {
+          const item = items[name];
+          if (item.type === "range_date") {
+            query.updateFilter(name, '>=', moment(value[0]).format('YYYY-MM-DD'));
+            query.updateFilter(name, '<', moment(value[1]).add('days', 1).format('YYYY-MM-DD'));
+          } else {
+            const operation = _.get(item, 'operation', '==');
+            query.updateFilter(name, operation, value);
+          }
+        }
+      });
+
+      table.setState({
+        query: query,
+      }, () => {
+        table.loadPage();
+        callback(values);
+      });
     }
   }
 
