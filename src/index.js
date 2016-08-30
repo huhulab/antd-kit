@@ -9,6 +9,7 @@ export {
 } from './form/buildForm';
 
 export { TableMixin } from './table';
+export { BaseTable } from './table/Table';
 
 export PageIntro from './other/PageIntro';
 export Topbar from './other/Topbar';
