@@ -50,8 +50,9 @@ function makeFormData(obj) {
 }
 
 
+let defaults = {baseURL: ""};
 function setAxiosDefaults(baseUrl) {
-  axios.defaults.baseURL = baseURL;
+  defaults.baseURL = baseUrl;
 }
 
 function httpErrorCallback(resp) {
@@ -74,7 +75,7 @@ function httpRequest(path, config) {
   if (token) {
     config.headers[tokenKey] = token;
   }
-  config.url = path;
+  config.url = defaults.baseURL + path;
   return axios(config);
 }
 /* Without data */
@@ -265,6 +266,7 @@ class Resource {
 export {
   tokenKey,
   makeFormData,
+  setAxiosDefaults,
   httpErrorCallback, httpRequest,
   httpGet, httpPost, httpPut, httpDelete, httpHead, httpPatch,
   PageQuery,

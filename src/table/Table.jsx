@@ -2,7 +2,9 @@ import React, { Component, PropTypes } from 'react';
 import {
   Table, Button, Modal, Row, Col, message, Popconfirm
 } from 'antd';
-import {httpDelete, httpErrorCallback, PageQuery} from '../api';
+import {
+  httpGet, httpDelete, httpErrorCallback, PageQuery
+} from '../api';
 
 
 const Action = String || {
@@ -14,7 +16,8 @@ const Action = String || {
     props: Object, // Button props
   },
   Form: Object,   // ["search"]
-  Modal: Object,  // hiddenElements: ["create", "update"]
+  FormModal: Object,  // hiddenElements: ["create", "update"]
+  formProps: undefined || Object || Function,
 };
 
 const TableActions = [Action, Action, Action];
@@ -29,14 +32,22 @@ const ActionColumn = [Action, Action, Action] || {
 };
 
 
+const HiddenForm = {
+  name: String,
+  Form: Object,
+  props: undefined || Object || Function,
+}
+
+
 class BaseTable extends Component {
   static propTypes = {
     innerProps: PropTypes.object.isRequired,
     pageLoader: PropTypes.func,
     urlPath: PropTypes.string.isRequired,
     pagination: PropTypes.bool,
-    actionColumn: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+    hiddenForms: PropTypes.array,
     tableActions: PropTypes.array,
+    actionColumn: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
     perpage: PropTypes.number,
     filters: PropTypes.array,
     sort: PropTypes.array,
@@ -50,6 +61,7 @@ class BaseTable extends Component {
       });
     },
     pagination: true,
+    hiddenForms: [],
     tableActions: [],
     perpage: 20,
     filters: [],
@@ -58,25 +70,29 @@ class BaseTable extends Component {
 
   constructor(props) {
     super(props);
+
     const page = 1;
-    let cache = {};
-    const { perpage, filters, sort, tableActions, actionColumn } = props;
-    let formVisibles = {};
-    const rowActions = _.isArray(actionColumn) ? actionColumn : actionColumn.actions;
-    tableActions.cocat(rowActions).forEach(function(action) {
-      if (!_.isString(action) && (action.Form !== undefined || action.Modal !== undefined)) {
-        formVisibles[`${action.type}Visible`] = false;
-      }
-    });
-    this.state = {
-      ...formVisibles,
+    const { perpage, filters, sort, tableActions, actionColumn, hiddenForms } = props;
+    let state = {
       updateObject: {},
       loading: false,
       total: 0,
       objects: [],
-      query: new TableQuery({page, perpage, filters, sort}),
+      query: new PageQuery({page, perpage, filters, sort}),
       selectedRows: [],
     };
+
+    const rowActions = _.isArray(actionColumn) ? actionColumn : actionColumn.actions;
+    tableActions.concat(rowActions).forEach(function(action) {
+      if (!_.isString(action) && (action.Form !== undefined || action.FormModal !== undefined)) {
+        state[`${action.type}Visible`] = false;
+      }
+    });
+    hiddenForms.forEach(function(item) {
+      state[`${item.name}Visible`] = false;
+      state[`${item.name}Object`] = {};
+    });
+    this.state = state;
   }
 
   componentDidMount() {
@@ -144,7 +160,8 @@ class BaseTable extends Component {
 
   render() {
     const { query } = this.state;
-    const { innerProps, urlPath, pagination, actionColumn, tableActions } = this.props;
+    const { innerProps, urlPath, pagination,
+            actionColumn, tableActions, hiddenForms } = this.props;
     const { columns, expandedRowRender } = innerProps;
 
     // [static]
@@ -173,6 +190,27 @@ class BaseTable extends Component {
     })
 
     let hiddenElements = [];
+
+    // [static]
+    hiddenForms.map((item) => {
+      const visibleKey = `${item.name}Visible`;
+      const objectKey = `${item.name}Object`;
+      const props = _.isFunction(item.props) ? item.props.bind(this)() : _.get(item, "props", {});
+      if (item.title !== undefined) {
+        props.title = item.title;
+      }
+      let hideState = {};
+      hideState[visibleKey] = false;
+      const form = React.createElement(item.Form, {
+        key: item.name,
+        visible: this.state[visibleKey],
+        object: this.state[objectKey],
+        onCancel: () => this.setState(hideState),
+        ...props
+      });
+      hiddenElements.push(form);
+    });
+
     // [static]
     let theColumns = columns.map(function(column) {
       return {key: column.dataIndex, ...column};
@@ -183,14 +221,17 @@ class BaseTable extends Component {
       rowActions.forEach((action) => {
         const actionType = _.isString(action) ? action : action.type;
         if (actionType === "update") {
+          const visibleKey = `${actionType}Visible`;
+          const formProps = _.isFunction(action.formProps) ? action.formProps.bind(this)() : _.get(action, "formProps", {});
           let hideState = {};
-          hideState[keyShowForm] = false;
-          hiddenElements.push(React.createElement(action.Modal, {
+          hideState[visibleKey] = false;
+          hiddenElements.push(React.createElement(action.FormModal, {
             key: actionType,
-            visible: this.state[`${actionType}Visible`],
+            visible: this.state[visibleKey],
             object: this.state.updateObject,
             onSuccess: () => this.loadPage(),
-            onCancel: () => this.setState(hideState)
+            onCancel: () => this.setState(hideState),
+            ...formProps
           }));
         }
       });
@@ -202,8 +243,8 @@ class BaseTable extends Component {
             const handleUpdate = (e) => {
               console.log('handleUpdate:', object);
               let newState = {};
-              newState[keyObject] = object;
-              newState[keyShowForm] = true;
+              newState[`${actionType}Object`] = object;
+              newState[`${actionType}Visible`] = true;
               this.setState(newState);
             };
             return <Button key="update" onClick={handleUpdate} className="list-btn" type="primary" size="small">更新</Button>;
@@ -248,6 +289,7 @@ class BaseTable extends Component {
       const visibleKey = `${actionType}Visible`;
       showState[visibleKey] = true;
       hideState[visibleKey] = false;
+      const formProps = _.isFunction(action.formProps) ? action.formProps.bind(this)() : _.get(action, "formProps", {});
 
       if (actionType === "refresh") {
         const defaultOnClick = (e) => this.loadPage(e);
@@ -256,30 +298,36 @@ class BaseTable extends Component {
           type="primary" className="list-btn" >刷新</Button>;
         })() : (() => {
           const handleRefresh = action.onClick === undefined ? defaultOnClick : action.onClick.bind(this);
+          const label = _.get(action, "label", "刷新");
           const buttonProps = _.get(action, "buttonProps", {});
           <Button key={actionType} type="primary" className="list-btn"
-           {...buttonProps} onClick={handleRefresh}>刷新</Button>
+           {...buttonProps} onClick={handleRefresh}>{label}</Button>
         })();
       } else if (actionType === "create") {
-        const modal = React.createElement(action.Modal, {
+        const modal = React.createElement(action.FormModal, {
           key: actionType,
           visible: this.state[visibleKey],
           onSuccess: () => this.loadPage(),
-          onCancel: () => this.setState(hideState)
+          onCancel: () => this.setState(hideState),
+          ...formProps
         });
         hiddenElements.push(modal);
+        const label = _.get(action, "label", "添加");
         return <Button key={actionType} type="primary" className="list-btn"
-                       onClick={() => this.setState(showState)}>添加</Button>;
+                       onClick={() => this.setState(showState)}>{label}</Button>;
       } else if (actionType === "search") {
         searchForm = React.createElement(action.Form, {
           key: actionType,
           visible: this.state[visibleKey],
-          table: this
+          table: this,
+          ...formProps
         });
+        const label = _.get(action, "label", "搜索");
         const newState = this.state[visibleKey] ? hideState : showState;
-        return <Button onClick={(e) => {this.setState(newState)}} type="ghost">搜索</Button>
+        return <Button key={actionType} type="ghost"
+                       onClick={(e) => {this.setState(newState)}}>{label}</Button>
       } else {
-        console.log("Invalid tableAction:", action);
+        console.error("Invalid tableAction:", action);
       }
     });
 
@@ -296,15 +344,16 @@ class BaseTable extends Component {
         {hiddenElements}
         {theToolbar}
         <Table
-          rowKey={this.rowKey}
-          pagination={thePagination}
-          rowSelection={theRowSelection}
-          {...innerProps}
-          columns={theColumns}
-          expandedRowRender={theExpandedRowRender}
-          onChange={this.onTableChanged}
-          loading={this.state.loading}
-          dataSource={this.state.objects} />
+            bordered={true}
+            rowKey={this.rowKey}
+            pagination={thePagination}
+            rowSelection={theRowSelection}
+            {...innerProps}
+            columns={theColumns}
+            expandedRowRender={theExpandedRowRender}
+            onChange={this.onTableChanged}
+            loading={this.state.loading}
+            dataSource={this.state.objects} />
       </div>
     );
   }

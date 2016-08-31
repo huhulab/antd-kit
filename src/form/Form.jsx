@@ -245,10 +245,10 @@ export class BaseForm extends Component {
           // pass
         } else if (item.type === "number") {
           value = parseFloat(value);
-        } else if (item.type === "date") {
+        } else if (_.includes(["date", "datetime"], item.type)) {
           value = new Date(value);
-        } else if (item.type === "datetime") {
-          value = new Date(value);
+        } else if (item.type === "time") {
+          // pass
         } else if (item.type === "range_date") {
           value = [new Date(value[0]), new Date(value[1])]
         } else if (item.type === "file") {
@@ -305,6 +305,12 @@ export class BaseForm extends Component {
               values[field] = moment(value).format('YYYY-MM-DD HH:mm:ss');
             }
             break;
+          case "time":
+            if (!!value && !_.isString(value)) {
+              const format = _.get(item, "format", "HH:mm:ss");
+              values[field] = moment(value).format(format);
+            }
+            break;
           case "file":
             if (_.isObject(item) && value) {
               values[field] = value.target.files;
@@ -335,7 +341,7 @@ export class BaseForm extends Component {
       if (!!this.onSubmit) {
         this.onSubmit(values, callback);
       } else {
-        this.props.onSubmit(this, values, callback);
+        this.props.onSubmit.bind(this)(values, callback);
       }
       console.log('Submit!!!', values);
     });

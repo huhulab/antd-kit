@@ -35,6 +35,7 @@ const Config = {
   title: String, // FormModal:: title
   modalProps: Object, // FormModal:: modalProps
   onSubmit: Function,
+  init: Function, // FormModal:: componentDidMount(), for init select options
   fields: [
     {
       name: String,
@@ -74,15 +75,17 @@ const SearchConfig = {
 const RangePicker = DatePicker.RangePicker;
 
 export class FormField {
-  constructor({name, type, render}) {
+  constructor({name, type, operation, render}) {
     this.name = name;
     this.type = type;
+    this.operation = operation;
     this.render = render;
   }
 }
 
 export function renderTextField(config) {
-  const rules = config.required ? [{required: true, message: config.placeholder}] : [];
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [{required: true, message: config.placeholder}] : [];
   return {
     type: "text",
     operation: config.operation,
@@ -101,7 +104,8 @@ export function renderTextField(config) {
 }
 
 export function renderPasswordField(config) {
-  const rules = config.required ? [{required: true, message: config.placeholder}] : [];
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [{required: true, message: config.placeholder}] : [];
   return {
     type: "password",
     render({form, field, itemProps}) {
@@ -119,7 +123,7 @@ export function renderPasswordField(config) {
 }
 
 export function renderBooleanField(config) {
-  const rules = config.required ? [{required: true, message: config.placeholder, type: 'boolean'}] : [];
+  const rules = config.rules !== undefined ? config.rules : [];
   return {
     type: "boolean",
     operation: config.operation,
@@ -127,7 +131,9 @@ export function renderBooleanField(config) {
       const inputProps = form.getFieldProps(field, {rules: rules});
       return (
         <FormItem label={config.label} {...itemProps}>
-          <Switch {...config.attrs} {...inputProps}/>
+          <Switch checkedChildren="是" unCheckedChildren="否"
+                  checked={form.getFieldValue(field)}
+                  {...config.attrs} {...inputProps}/>
         </FormItem>
       );
     }
@@ -135,9 +141,10 @@ export function renderBooleanField(config) {
 }
 
 export function renderNumberField(config) {
-  const rules = config.required ? [{
-    required: true, message: config.placeholder, type: 'number'
-  }] : [];
+  const rules = config.rules !== undefined ? config.rules :
+               config.required ? [{
+                 required: true, message: config.placeholder, type: 'number'
+               }] : [];
   return {
     type: 'number',
     operation: config.operation,
@@ -158,7 +165,8 @@ export function renderNumberField(config) {
 }
 
 export function renderTextareaField(config) {
-  const rules = config.required ? [{required: true, message: config.placeholder}] : [];
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [{required: true, message: config.placeholder}] : [];
   return {
     type: "textarea",
     operation: config.operation,
@@ -175,7 +183,8 @@ export function renderTextareaField(config) {
 }
 
 export function renderFileField(config) {
-  const rules = config.required ? [formRules.fileRequired(config.placeholder)] : [];
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [formRules.fileRequired(config.placeholder)] : [];
   return {
     type: "file",
     render({ field, form, itemProps }) {
@@ -193,7 +202,8 @@ export function renderFileField(config) {
 }
 
 export function renderDateField(config) {
-  const rules = config.required ? [{required: true, message: config.placeholder, type: 'date'}] : [];
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [{required: true, message: config.placeholder, type: 'date'}] : [];
   return {
     type: "date",
     operation: config.operation,
@@ -207,13 +217,14 @@ export function renderDateField(config) {
 }
 
 export function renderSelectField(config) {
-  const rules = config.required ? [{required: true, message: config.placeholder}] : [];
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [{required: true, message: config.placeholder}] : [];
   return {
     type: "select",
     operation: config.operation,
     render({form ,field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
-      const options = config.options || this.state.options[field];
+      const options = config.options || _.get(_.get(this.state, "options", {}), field, []);
       return <FormItem label={config.label} {...itemProps}>
         <Select {...config.attrs} placeholder={config.placeholder} {...inputProps}>
           {formHelpers.makeOptionElements(options)}
@@ -224,22 +235,43 @@ export function renderSelectField(config) {
 }
 
 export function renderMultipleSelectField(config) {
-  const rules = config.required ? [
-    {required: true, message: config.placeholder, type: 'array'}
-  ] : [];
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [
+                  {required: true, message: config.placeholder, type: 'array'}
+                ] : [];
   return {
     type: "multiple_select",
     operation: _.get(config, "operation", "in"), // ["in", "~in"]
     render({form, field, itemProps}) {
       const inputProps = form.getFieldProps(field, {rules: rules});
-      const options = _.get(config, 'options', this.state.options[field]);
+      const options = _.get(config, 'options', _.get(_.get(this.state, "options", {}), "field", []));
       return <FormItem label={config.label} {...itemProps}>
-        <Select multiple {...config.attrs} placeholder={config.placeholder} {...inputProps}>
-           {formHelpers.makeOptionElements(options)}
+        <Select multiple style={{width: "100%"}}
+                {...config.attrs} placeholder={config.placeholder} {...inputProps}>
+          {formHelpers.makeOptionElements(options)}
         </Select>
       </FormItem>;
     }
   }
+}
+
+export function renderTimeField(config) {
+  const rules = config.rules !== undefined ? config.rules :
+                config.required ? [{required: true, message: config.placeholder}] : [];
+  const format = _.get(config, "format", "HH:mm:ss");
+  return {
+    type: "time",
+    format: config.format,
+    render({form, field, itemProps}) {
+      const inputProps = form.getFieldProps(field, {rules: rules});
+      return <FormItem label={config.label} {...itemProps}>
+        <TimePicker format={format}
+                    {...config.attrs}
+                    placeholder={config.placeholder}
+                    {...inputProps} />
+      </FormItem>;
+    }
+  };
 }
 
 export function renderRangeDateField(config) {
@@ -250,13 +282,13 @@ export function renderRangeDateField(config) {
         <RangePicker {...config.attrs} {...form.getFieldProps(field)}/>
       </FormItem>
     }
-  }
+  };
 }
 
 export function buildItems(config) {
   let fieldItems = {};
   config.fields.forEach(function(field) {
-    if (field instanceof FormField) {
+    if (field.render !== undefined) {
       fieldItems[field.name] = field;
     } else {
       if (field.type === undefined) {
@@ -275,6 +307,7 @@ export function buildItems(config) {
         "date": renderDateField,
         "select": renderSelectField,
         "multiple_select": renderMultipleSelectField,
+        "time": renderTimeField,
         "range_date": renderRangeDateField,
       }[field.type](field);
     }
@@ -296,7 +329,7 @@ export function buildForm(config) {
     }
 
     onSubmit(values, callback) {
-      config.onSubmit(this, values, callback);
+      config.onSubmit.bind(this)(values, callback);
     }
   }
 
@@ -306,6 +339,9 @@ export function buildForm(config) {
 export function buildFormModal(config) {
   let fieldNames = config.fields.map((field) => field.name);
   const fieldItems = buildItems(config);
+  const title = _.get(
+    config, "title",
+    _.get({create: "添加记录", update: "更新记录"}, config.type, "[未知]"));
 
   class _FormModal extends FormModal {
     static defaultProps = {
@@ -313,13 +349,21 @@ export function buildFormModal(config) {
       type: config.type,
       formProps: {...FormModal.formProps, ...config.formProps},
       modalProps: {...FormModal.modalProps, ...config.modalProps},
-      title: config.title,
+      title: title,
       fields: fieldNames,
       items: fieldItems
     }
 
+    componentDidMount() {
+      this.resetForm();
+      if (config.init !== undefined) {
+        config.init.bind(this)();
+      }
+    }
+
     onSubmit(values, callback) {
-      config.onSubmit(this, values, callback);
+      const theOnSubmit = _.get(config, "onSubmit", this.props.onSubmit);
+      theOnSubmit.bind(this)(values, callback);
     }
   }
 
